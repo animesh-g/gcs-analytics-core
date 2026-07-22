@@ -34,6 +34,8 @@ class GcsWriteOptionsTest {
     assertThat(options.getKmsKeyName().isPresent()).isFalse();
     assertThat(options.getUserProject().isPresent()).isFalse();
     assertThat(options.getEncryptionKey().isPresent()).isFalse();
+    assertThat(options.isBidiWriteEnabled()).isFalse();
+    assertThat(options.isFinalizeOnClose()).isFalse();
   }
 
   @Test
@@ -46,6 +48,8 @@ class GcsWriteOptionsTest {
             .setKmsKeyName("kms-key")
             .setUserProject("project-123")
             .setEncryptionKey("enc-key")
+            .setBidiWriteEnabled(true)
+            .setFinalizeOnClose(true)
             .build();
 
     assertThat(options.isChecksumValidationEnabled()).isTrue();
@@ -54,6 +58,8 @@ class GcsWriteOptionsTest {
     assertThat(options.getKmsKeyName()).hasValue("kms-key");
     assertThat(options.getUserProject()).hasValue("project-123");
     assertThat(options.getEncryptionKey()).hasValue("enc-key");
+    assertThat(options.isBidiWriteEnabled()).isTrue();
+    assertThat(options.isFinalizeOnClose()).isTrue();
   }
 
   @Test
@@ -66,6 +72,8 @@ class GcsWriteOptionsTest {
             .put("gcs.kms-key-name", "kms-key")
             .put("gcs.user-project", "project-123")
             .put("gcs.encryption-key", "enc-key")
+            .put("gcs.channel.write.bidi-write.enabled", "true")
+            .put("gcs.channel.write.finalize-on-close", "true")
             .build();
 
     GcsWriteOptions options = GcsWriteOptions.createFromOptions(rawOptions, "gcs.");
@@ -76,5 +84,7 @@ class GcsWriteOptionsTest {
     assertThat(options.getKmsKeyName()).hasValue("kms-key");
     assertThat(options.getUserProject()).hasValue("project-123");
     assertThat(options.getEncryptionKey()).hasValue("enc-key");
+    assertThat(options.isBidiWriteEnabled()).isTrue();
+    assertThat(options.isFinalizeOnClose()).isTrue();
   }
 }
