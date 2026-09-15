@@ -26,11 +26,12 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.WritableByteChannel;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** A unified WritableByteChannel for writing objects to Google Cloud Storage. */
-public class GcsWriteChannel implements WritableByteChannel {
+public class GcsWriteChannel implements FinalizableWritableByteChannel {
 
   private static final Logger LOG = LoggerFactory.getLogger(GcsWriteChannel.class);
 
@@ -39,8 +40,8 @@ public class GcsWriteChannel implements WritableByteChannel {
   private volatile WritableByteChannel sdkWriteChannel;
   private final GcsWriteOptions writeOptions;
 
-  private volatile long bytesWritten = 0;
-  private volatile boolean closed = false;
+  final AtomicLong bytesWritten = new AtomicLong(0);
+  volatile boolean closed = false;
 
   GcsWriteChannel(
       BlobWriteSession blobWriteSession,
@@ -63,14 +64,14 @@ public class GcsWriteChannel implements WritableByteChannel {
     try {
       int written = sdkWriteChannel.write(src);
       if (written > 0) {
-        bytesWritten += written;
+        bytesWritten.addAndGet(written);
       }
 
       LOG.trace(
           "{} bytes were written out of provided buffer of capacity {}. Total: {}",
           written,
           bytesToDraft,
-          bytesWritten);
+          bytesWritten.get());
       return written;
     } catch (StorageException | IOException e) {
       throw handleException(e, "write");
@@ -115,12 +116,23 @@ public class GcsWriteChannel implements WritableByteChannel {
     }
   }
 
-  private IOException handleException(Exception e, String context) {
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The HTTP and gRPC upload paths always finalize the object when the channel is closed, so
+   * this is equivalent to {@link #close()}.
+   */
+  @Override
+  public void finalizeAndClose() throws IOException {
+    close();
+  }
+
+  IOException handleException(Exception e, String context) {
     return GcsExceptionUtil.translateWriteException(
-        e, context, blobInfo.getBlobId(), bytesWritten, writeOptions);
+        e, context, blobInfo.getBlobId(), getBytesWritten(), writeOptions);
   }
 
   public long getBytesWritten() {
-    return bytesWritten;
+    return bytesWritten.get();
   }
 }
